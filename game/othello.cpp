@@ -5,17 +5,18 @@ typedef unsigned int uint32;
 
 #define NOT_LEFT_COL 0xFEFEFEFEFEFEFEFEllu
 #define NOT_RIGHT_COL 0x7F7F7F7F7F7F7F7Fllu
-#define NOT_UPPER_ROW 0xFFFFFFFFFFFFFF00llu
-#define NOT_LOWER_ROW 0x00FFFFFFFFFFFFFFllu
+#define NOT_UPPER_ROW 0x00FFFFFFFFFFFFFFllu
+#define NOT_LOWER_ROW 0xFFFFFFFFFFFFFF00llu
 
+// bit 0 H8 bit 63 A1
 void 
 PrintBoard(u64 Black, u64 White)
 {
 	printf("  A B C D E F G H\n");
-	for(int Col = 0; Col < 8; Col++)
+	for(int Col = 7; Col >= 0; Col--)
 	{
 		printf("%d ", Col+1);
-		for(int Row = 0; Row < 8; Row++)
+		for(int Row = 7; Row >= 0; Row--)
 		{
 			int Pos = Col * 8 + Row;
 			u64 Mask = 1ULL << Pos;
@@ -60,8 +61,8 @@ ApplyMove(u64 Black, u64 White,
 	u64 OpponentsBoard = White;
 	if(CurrentColor)
 	{
-		u64 CurrentBoard = White;
-		u64 OpponentsBoard = Black;
+		CurrentBoard = White;
+		OpponentsBoard = Black;
 	}
 
 	u64 ToSwap = 0, ToSwapTemp = 0, Position;
@@ -184,9 +185,14 @@ main() {
 
 	printf("Init: \n");
 	PrintBoard(BlackBoard, WhiteBoard);
-	printf("Test move");
+	printf("Test move \n");
 	ApplyMove(BlackBoard, WhiteBoard,
 			0, 1ULL << 26,
+			&BlackBoard, &WhiteBoard);
+	PrintBoard(BlackBoard, WhiteBoard);
+	printf("Test move 2 \n");
+	ApplyMove(BlackBoard, WhiteBoard,
+			1, 1ULL << 20,
 			&BlackBoard, &WhiteBoard);
 	PrintBoard(BlackBoard, WhiteBoard);
 
