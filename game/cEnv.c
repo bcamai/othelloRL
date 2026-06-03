@@ -1,4 +1,7 @@
-#include <stdio.h>
+#include<stdio.h>
+
+// TODO move to players.C later
+#include <stdlib.h>
 
 typedef unsigned long long u64;
 typedef unsigned int uint32;
@@ -332,7 +335,7 @@ PlayTurn(u64 BlackBoard, u64 WhiteBoard,
 		CurrentColor = 1 - CurrentColor;
 		FindValidMoves(BlackBoard, WhiteBoard,
 									CurrentColor, ValidMoves);
-		if(!ValidMoves)
+		if(!*ValidMoves)
 		{
 			*Finished = 1;
 		}
@@ -343,6 +346,61 @@ PlayTurn(u64 BlackBoard, u64 WhiteBoard,
 	}
 }
 
+u64 
+GetRandomMove(u64 ValidMoves, int NumMoves)
+{
+	int Random = rand() % NumMoves;
+	u64 ChosenMove = 0;
+
+	for(int i=0; i <= Random; i++)
+	{
+		ChosenMove = ValidMoves & -ValidMoves;
+		ValidMoves &= ValidMoves - 1;
+	}
+	return ChosenMove;
+}
+
+// TODO move to players.c
+void 
+PlayVsRandom(u64 BlackBoard, u64 WhiteBoard,
+		int CurrentColor, u64 Move,
+		u64 *BlackAfter, u64 *WhiteAfter,
+		u64 *ValidMoves, int * NextTurnColor,
+		int *Finished)
+{
+	*Finished = 0;
+	ApplyMove(BlackBoard, WhiteBoard,
+			CurrentColor, Move,
+			BlackAfter, WhiteAfter);
+	CurrentColor = 1 - CurrentColor;
+	FindValidMoves(BlackBoard, WhiteBoard,
+			CurrentColor, ValidMoves);
+
+	while(!*ValidMoves)
+	{
+		CurrentColor = 1 - CurrentColor;
+		FindValidMoves(*BlackAfter, *WhiteAfter,
+				CurrentColor, ValidMoves);
+		if(!*ValidMoves)
+		{
+			*Finished = 1;
+		}
+		else
+		{
+			u64 RandomMove;
+			int NumMoves;
+			NumMoves = GetScore(*ValidMoves);
+			RandomMove = GetRandomMove(*ValidMoves, NumMoves);
+			ApplyMove(*BlackAfter, *WhiteAfter,
+					CurrentColor, RandomMove,
+					BlackAfter, WhiteAfter);
+			*NextTurnColor = CurrentColor;
+			CurrentColor = 1 - CurrentColor;
+			FindValidMoves(*BlackAfter, *WhiteAfter,
+					CurrentColor, ValidMoves);
+		}
+	}
+}
 
 void
 test() {
