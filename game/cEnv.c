@@ -328,12 +328,12 @@ PlayTurn(u64 BlackBoard, u64 WhiteBoard,
 					  CurrentColor,  Move,
 					  BlackAfter,  WhiteAfter);
 	CurrentColor = 1 - CurrentColor;
-	FindValidMoves(BlackBoard, WhiteBoard,
+	FindValidMoves(*BlackAfter, *WhiteAfter,
 								CurrentColor, ValidMoves);
 	if(!*ValidMoves)
 	{
 		CurrentColor = 1 - CurrentColor;
-		FindValidMoves(BlackBoard, WhiteBoard,
+		FindValidMoves(*BlackAfter, *WhiteAfter,
 									CurrentColor, ValidMoves);
 		if(!*ValidMoves)
 		{
@@ -349,7 +349,8 @@ PlayTurn(u64 BlackBoard, u64 WhiteBoard,
 u64 
 GetRandomMove(u64 ValidMoves, int NumMoves)
 {
-	int Random = rand() % NumMoves;
+	// int Random = rand() % NumMoves;
+	int Random = ((u64)random() * NumMoves) >> 31;
 	u64 ChosenMove = 0;
 
 	for(int i=0; i <= Random; i++)
@@ -361,22 +362,24 @@ GetRandomMove(u64 ValidMoves, int NumMoves)
 }
 
 // TODO move to players.c
-void 
+void
 PlayVsRandom(u64 BlackBoard, u64 WhiteBoard,
 		int CurrentColor, u64 Move,
 		u64 *BlackAfter, u64 *WhiteAfter,
-		u64 *ValidMoves, int * NextTurnColor,
+		u64 *ValidMoves, int *NextTurnColor,
 		int *Finished)
 {
 	*Finished = 0;
+
 	ApplyMove(BlackBoard, WhiteBoard,
 			CurrentColor, Move,
 			BlackAfter, WhiteAfter);
+
 	CurrentColor = 1 - CurrentColor;
-	FindValidMoves(BlackBoard, WhiteBoard,
+	FindValidMoves(*BlackAfter, *WhiteAfter,
 			CurrentColor, ValidMoves);
 
-	while(!*ValidMoves)
+	if(!*ValidMoves)
 	{
 		CurrentColor = 1 - CurrentColor;
 		FindValidMoves(*BlackAfter, *WhiteAfter,
@@ -387,66 +390,43 @@ PlayVsRandom(u64 BlackBoard, u64 WhiteBoard,
 		}
 		else
 		{
-			u64 RandomMove;
-			int NumMoves;
-			NumMoves = GetScore(*ValidMoves);
-			RandomMove = GetRandomMove(*ValidMoves, NumMoves);
-			ApplyMove(*BlackAfter, *WhiteAfter,
-					CurrentColor, RandomMove,
-					BlackAfter, WhiteAfter);
 			*NextTurnColor = CurrentColor;
+			return; 
+		}
+	}
+	else
+	{
+		int NumValidMoves = GetScore(*ValidMoves);
+		u64 ChosenMove = GetRandomMove(*ValidMoves, NumValidMoves);
+		ApplyMove(*BlackAfter, *WhiteAfter,
+				CurrentColor, ChosenMove,
+				BlackAfter, WhiteAfter);
+		CurrentColor = 1 - CurrentColor;
+		FindValidMoves(*BlackAfter, *WhiteAfter,
+				CurrentColor, ValidMoves);
+		while(!*ValidMoves)
+		{
 			CurrentColor = 1 - CurrentColor;
 			FindValidMoves(*BlackAfter, *WhiteAfter,
 					CurrentColor, ValidMoves);
+			if(!*ValidMoves)
+			{
+				*Finished = 1;
+				break;
+			}
+			else
+			{
+				NumValidMoves = GetScore(*ValidMoves);
+				ChosenMove = GetRandomMove(*ValidMoves, NumValidMoves);
+				ApplyMove(*BlackAfter, *WhiteAfter,
+						CurrentColor, ChosenMove,
+						BlackAfter, WhiteAfter);
+				CurrentColor = 1 - CurrentColor;
+				FindValidMoves(*BlackAfter, *WhiteAfter,
+						CurrentColor, ValidMoves);
+			}
 		}
+		*NextTurnColor = CurrentColor;
 	}
 }
 
-void
-test() {
-	u64 BlackBoard = (1ULL << 28) | (1ULL << 35);
-	u64 WhiteBoard = (1ULL << 27) | (1ULL << 36);
-
-	int WhiteScore = GetScore(WhiteBoard);
-	int BlackScore = GetScore(BlackBoard);
-
-	printf("Init White %i Black %i \n", WhiteScore, BlackScore);
-	u64 ValidMoves;
-	FindValidMoves(BlackBoard, WhiteBoard,
-								 BLACK, &ValidMoves);
-	PrintBoard(BlackBoard, WhiteBoard);
-	PrintBoard(ValidMoves, 0ull);
-	
-	ApplyMove(BlackBoard, WhiteBoard,
-			0, 1ULL << 26,
-			&BlackBoard, &WhiteBoard);
-	WhiteScore = GetScore(WhiteBoard);
-	BlackScore = GetScore(BlackBoard);	
-	printf("Test move 1. White %i Black %i \n", WhiteScore, BlackScore);
-	FindValidMoves(BlackBoard, WhiteBoard,
-								 WHITE, &ValidMoves);
-	PrintBoard(BlackBoard, WhiteBoard);
-	PrintBoard(0ull, ValidMoves);
-	int Reasult = GetWinner(BlackBoard, WhiteBoard);
-	printf("Result %i \n", Reasult);
-	int NumValidMoves = GetScore(ValidMoves);
-	int ValidMovesIndexed[NumValidMoves];
-	printf("Num of valid moves: %i \n", NumValidMoves);
-	ConvertToIndexedArray(ValidMoves, ValidMovesIndexed);
-	printf("Legal moves indexed\n");
-	for(int i=0; i<NumValidMoves; i++)
-	{
-		printf("%i \n", ValidMovesIndexed[i]);
-	}
-	
-	ApplyMove(BlackBoard, WhiteBoard,
-			1, 1ULL << 20,
-			&BlackBoard, &WhiteBoard);
-	WhiteScore = GetScore(WhiteBoard);
-	BlackScore = GetScore(BlackBoard);	
-	printf("Test move 2. White %i Black %i \n", WhiteScore, BlackScore);
-	FindValidMoves(BlackBoard, WhiteBoard,
-								 BLACK, &ValidMoves);
-	PrintBoard(BlackBoard, WhiteBoard);
-	PrintBoard(ValidMoves, 0ull);
-}
