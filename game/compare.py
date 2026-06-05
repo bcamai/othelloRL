@@ -12,6 +12,11 @@ c_env.ApplyMove.argtypes = [ctypes.c_ulonglong, ctypes.c_ulonglong,
                             ctypes.POINTER(ctypes.c_ulonglong), ctypes.POINTER(ctypes.c_ulonglong)] 
 c_env.ConvertToIndexedArray.argtypes = [ctypes.c_ulonglong, ctypes.POINTER(ctypes.c_int)]
 c_env.GetScore.argtypes = [ctypes.c_ulonglong] 
+c_env.PlayVsRandom.argtypes = [ctypes.c_ulonglong, ctypes.c_ulonglong,
+                               ctypes.c_int, ctypes.c_ulonglong,
+                               ctypes.POINTER(ctypes.c_ulonglong), ctypes.POINTER(ctypes.c_ulonglong),
+                               ctypes.POINTER(ctypes.c_ulonglong), ctypes.POINTER(ctypes.c_int),
+                               ctypes.POINTER(ctypes.c_int)]
 
 
 
@@ -31,7 +36,8 @@ def test_c_version(games_count):
     for _ in range(games_count):
         black_board = ctypes.c_ulonglong((1 << 28) | (1 << 35)).value
         white_board = ctypes.c_ulonglong((1 << 27) | (1 << 36)).value
-        current_color = 0
+        current_color = ctypes.c_int(0)
+        finished = ctypes.c_int(0)
 
         legal_moves_buf = ctypes.c_ulonglong(0)
         black_board_buf = ctypes.c_ulonglong(0)
@@ -40,26 +46,36 @@ def test_c_version(games_count):
         IntArray64 = ctypes.c_int * 64
         legal_moves_array_buf = IntArray64()
 
-        skips = 0
-        while skips < 2:
-            c_env.FindValidMoves(black_board, white_board, 
-                                 current_color, ctypes.byref(legal_moves_buf))
+        c_env.FindValidMoves(black_board, white_board, 
+                             current_color, ctypes.byref(legal_moves_buf))
+        legal_moves = legal_moves_buf.value
+        num_valid_moves = c_env.GetScore(legal_moves)
+        c_env.ConvertToIndexedArray(legal_moves, legal_moves_array_buf)
+        valid_legal_moves = legal_moves_array_buf[:num_valid_moves]
+        chosen_move = random.choice(valid_legal_moves)
+        move = 1 << chosen_move
+        c_env.PlayVsRandom(black_board, white_board,
+                        current_color.value, move,
+                        ctypes.byref(black_board_buf), ctypes.byref(white_board_buf),
+                        ctypes.byref(legal_moves_buf), ctypes.byref(current_color),
+                        ctypes.byref(finished))
+        black_board = black_board_buf.value
+        white_board = white_board_buf.value
+        
+        while(not finished.value):
             legal_moves = legal_moves_buf.value
+            c_env.ConvertToIndexedArray(legal_moves, legal_moves_array_buf)
             num_valid_moves = c_env.GetScore(legal_moves)
-            if num_valid_moves > 0:
-                c_env.ConvertToIndexedArray(legal_moves, legal_moves_array_buf)
-                valid_legal_moves = legal_moves_array_buf[:num_valid_moves]
-                chosen_move = random.choice(valid_legal_moves)
-                move = 1 << chosen_move
-                c_env.ApplyMove(black_board, white_board,
-                                current_color, move,
-                                ctypes.byref(black_board_buf),
-                                ctypes.byref(white_board_buf))
-                black_board = black_board_buf.value
-                white_board = white_board_buf.value
-            else:
-                skips += 1
-            current_color = 1 - current_color
+            valid_legal_moves = legal_moves_array_buf[:num_valid_moves]
+            chosen_move = random.choice(valid_legal_moves)
+            move = 1 << chosen_move
+            c_env.PlayVsRandom(black_board, white_board,
+                            current_color.value, move,
+                            ctypes.byref(black_board_buf), ctypes.byref(white_board_buf),
+                            ctypes.byref(legal_moves_buf), ctypes.byref(current_color),
+                            ctypes.byref(finished))
+            black_board = black_board_buf.value
+            white_board = white_board_buf.value
 
 if __name__ == "__main__":
     GAMES = 1000
