@@ -1,5 +1,6 @@
 import ctypes
 import pyEnv as othello
+import pythonEnvironment as py_env
 import random
 import time
 
@@ -23,6 +24,7 @@ c_env.PlayVsRandom.argtypes = [ctypes.c_ulonglong, ctypes.c_ulonglong,
 def test_python(games_count):
     env = othello.Board(8)
     for _ in range(games_count):
+        env.reset_board()
         while not env.game_ended():
             moves = env.find_valid_moves(env.current_color)
             if not moves:
@@ -31,6 +33,24 @@ def test_python(games_count):
             move = random.choice(moves)
             env.apply_move(env.current_color, move)
             env.current_color *= -1
+
+def test_python_bitboard(games_count):
+    env = py_env.Board()
+    for _ in range(games_count):
+        env.reset()
+        black_board = env.board[py_env.BLACK]
+        white_board = env.board[py_env.WHITE]
+        current_color = py_env.BLACK
+        finished = 0
+
+        while not finished:
+            valid_moves = env.find_valid_move(black_board, white_board, current_color)
+            n_valid_moves = env.get_score(valid_moves)
+            move = env.get_random_move(valid_moves, n_valid_moves)
+            black_board, white_board, valid_moves, current_color, finished = \
+                    env.play_vs_random(black_board, white_board, current_color, move)
+    
+
 
 def test_c_version(games_count):
     for _ in range(games_count):
@@ -84,8 +104,12 @@ if __name__ == "__main__":
     test_python(GAMES)
     time_python = time.time() - start_python
 
+    start_python_bitboard = time.time()
+    test_python_bitboard(GAMES)
+    time_python_bitboard = time.time() - start_python_bitboard
+
     start_c = time.time()
     test_c_version(GAMES)
     time_c = time.time() - start_c
 
-    print(f"Time (python): {time_python}, Time (C): {time_c} ")
+    print(f"Time (python): {time_python},Time (python bitboard): {time_python_bitboard}, Time (C): {time_c} ")
