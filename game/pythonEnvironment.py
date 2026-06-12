@@ -85,8 +85,8 @@ class Board:
             current_board = white_board
             opponent_board = black_board
         to_swap = 0
-        to_swap_temp = 0
         # Left
+        to_swap_temp = 0
         position = opponent_board & (move << 1) & NOT_LEFT_COL
         while(position & opponent_board):
             to_swap_temp = to_swap_temp | position
@@ -94,6 +94,7 @@ class Board:
         if(position & current_board):
             to_swap = to_swap | to_swap_temp
         # Right
+        to_swap_temp = 0
         position = opponent_board & (move >> 1) & NOT_RIGHT_COL
         while(position & opponent_board):
             to_swap_temp = to_swap_temp | position
@@ -101,6 +102,7 @@ class Board:
         if(position & current_board):
             to_swap = to_swap | to_swap_temp
         # Up
+        to_swap_temp = 0
         position = opponent_board & (move << 8) & NOT_UPPER_ROW
         while(position & opponent_board):
             to_swap_temp = to_swap_temp | position
@@ -108,6 +110,7 @@ class Board:
         if(position & current_board):
             to_swap = to_swap | to_swap_temp
         # Lower
+        to_swap_temp = 0
         position = opponent_board & (move >> 8) & NOT_LOWER_ROW
         while(position & opponent_board):
             to_swap_temp = to_swap_temp | position
@@ -115,6 +118,7 @@ class Board:
         if(position & current_board):
             to_swap = to_swap | to_swap_temp
         # Upper left
+        to_swap_temp = 0
         position = opponent_board & (move << 9) & NOT_UPPER_ROW & NOT_LEFT_COL
         while(position & opponent_board):
             to_swap_temp = to_swap_temp | position
@@ -122,6 +126,7 @@ class Board:
         if(position & current_board):
             to_swap = to_swap | to_swap_temp
         # Upper right
+        to_swap_temp = 0
         position = opponent_board & (move << 7) & NOT_UPPER_ROW & NOT_RIGHT_COL
         while(position & opponent_board):
             to_swap_temp = to_swap_temp | position
@@ -129,6 +134,7 @@ class Board:
         if(position & current_board):
             to_swap = to_swap | to_swap_temp
         # Lower left
+        to_swap_temp = 0
         position = opponent_board & (move >> 7) & NOT_LOWER_ROW & NOT_LEFT_COL
         while(position & opponent_board):
             to_swap_temp = to_swap_temp | position
@@ -136,6 +142,7 @@ class Board:
         if(position & current_board):
             to_swap = to_swap | to_swap_temp
         # Lower right
+        to_swap_temp = 0
         position = opponent_board & (move >> 9) & NOT_LOWER_ROW & NOT_RIGHT_COL
         while(position & opponent_board):
             to_swap_temp = to_swap_temp | position
@@ -185,7 +192,7 @@ class Board:
             # Upper Left
             position = opponent_board & ((current_board << 9) & NOT_LEFT_COL & NOT_UPPER_ROW)
             while position:
-                valid_moves |= (empty & ((position << 9) & NOT_UPPER_ROW))
+                valid_moves |= (empty & ((position << 9) & NOT_LEFT_COL & NOT_UPPER_ROW))
                 position = opponent_board & ((position << 9) & NOT_LEFT_COL & NOT_UPPER_ROW)
             # Upper Right
             position = opponent_board & ((current_board << 7) & NOT_RIGHT_COL & NOT_UPPER_ROW)

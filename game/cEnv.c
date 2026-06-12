@@ -287,7 +287,7 @@ FindValidMoves(u64 BlackBoard, u64 WhiteBoard,
 	Position = OpponentsBoard & ((CurrentBoard << 1 << 8) & NOT_LEFT_COL & NOT_UPPER_ROW);
 	while(Position)
 	{
-		ValidMoves = ValidMoves | (Empty & ((Position << 1 << 8) & NOT_UPPER_ROW));
+		ValidMoves = ValidMoves | (Empty & ((Position << 1 << 8) & NOT_LEFT_COL & NOT_UPPER_ROW));
 		Position = OpponentsBoard & ((Position << 1 << 8) & NOT_LEFT_COL & NOT_UPPER_ROW);
 	}
 	// Upper Right
