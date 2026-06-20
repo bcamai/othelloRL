@@ -4,6 +4,7 @@ import torch.optim as optim
 import random
 import numpy as np
 from collections import deque
+from agent import MLP, GNN
 
 from game.pythonEnvironment import Board, BLACK, WHITE
 
@@ -23,7 +24,7 @@ def mask_to_tensor(valid_moves_mask):
 
 
 
-class OthelloGymEnv:
+class OthelloEnv:
     def __init__(self):
         self.env = Board()
         self.reset()
@@ -84,21 +85,6 @@ class OthelloGymEnv:
                 reward, 
                 self.finished)
 
-
-
-class OthelloMLP(nn.Module):
-    def __init__(self):
-        super(OthelloMLP, self).__init__()
-        self.net = nn.Sequential(
-            nn.Linear(128, 256),
-            nn.ReLU(),
-            nn.Linear(256, 256),
-            nn.ReLU(),
-            nn.Linear(256, 64)  
-        )
-
-    def forward(self, x):
-        return self.net(x)
 
 
 
@@ -171,13 +157,15 @@ if __name__ == "__main__":
     epsilon_decay = 0.9999
     epsilon_min = 0.05
 
-    model = OthelloMLP()
-    target_model = OthelloMLP()
+    #model = MLP()
+    #target_model = MLP()
+    model = GNN()
+    target_model = GNN()
     target_model.load_state_dict(model.state_dict()) 
     
     optimizer = optim.Adam(model.parameters(), lr=LR)
     buffer = ReplayBuffer()
-    env = OthelloGymEnv()
+    env = OthelloEnv()
 
     win_history = deque(maxlen=100) 
     
@@ -207,7 +195,7 @@ if __name__ == "__main__":
         if episode % TARGET_UPDATE == 0:
             target_model.load_state_dict(model.state_dict())
 
-        if (episode + 1) % 50 == 0:
+        if (episode + 1) % 100 == 0:
             avg_win = (sum(win_history) / len(win_history)) * 100 if win_history else 0
             avg_loss = np.mean(episode_loss) if episode_loss else 0
             print(f"Episode {episode+1}/{EPISODES} | WinRate (Last 100): {avg_win:.1f}% | Epsilon: {epsilon:.3f} | Loss: {avg_loss:.4f}")
