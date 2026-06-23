@@ -4,7 +4,7 @@ import torch.optim as optim
 import random
 import numpy as np
 from collections import deque
-from agent import MLP, GNN
+from agent import MLP, DQN_GNN
 
 from game.pythonEnvironment import Board, BLACK, WHITE
 
@@ -137,7 +137,8 @@ def train_step(model, target_model, optimizer, buffer, batch_size, gamma):
         
         target_q = rewards + gamma * max_next_q * (1.0 - dones)
 
-    loss = nn.MSELoss()(current_q, target_q)
+    # loss = nn.MSELoss()(current_q, target_q)
+    loss = nn.SmoothL1Loss()(current_q, target_q)
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
@@ -147,9 +148,9 @@ def train_step(model, target_model, optimizer, buffer, batch_size, gamma):
 
 
 if __name__ == "__main__":
-    EPISODES = 25000
+    EPISODES = 40_000
     BATCH_SIZE = 64
-    GAMMA = 0.99
+    GAMMA = 0.9995
     LR = 0.001
     TARGET_UPDATE = 10  
     
