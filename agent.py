@@ -112,7 +112,7 @@ class ActorCriticGNN(nn.Module):
         self.register_buffer('adj_matrix', build_adjency_matrix(board_size))
         # NOTE Projection for testing, if it can help when network gets more information than just their/opponents disc #proj
         self.input_proj = nn.Linear(2, 16)
-        self.gcn1 = GraphConvLayer(in_features=2, out_features=hidden_dim)
+        self.gcn1 = GraphConvLayer(in_features=16, out_features=hidden_dim)
         self.gcn2 = GraphConvLayer(in_features=hidden_dim, out_features=hidden_dim)
         self.gcn3 = GraphConvLayer(in_features=hidden_dim, out_features=hidden_dim)
         # NOTE 16 dim since other nodes are proj. to 16 dim #proj
@@ -149,7 +149,7 @@ class ActorCriticGNN(nn.Module):
         x_combined = torch.cat([x1, x2, x3], dim=-1) # [batch, 65, 3 * hidden_dim]
 
         board_features = x_combined[:, :64, :] # [batch, 64, 3 * hidden_dim]
-        policy_logits = self.actor_head(board_features).unsqueeze(-1) # [batch, 64]
+        policy_logits = self.actor_head(board_features).squeeze(-1) # [batch, 64]
 
         virtual_node_features = x_combined[:, 64, :] # [batch, 3 * hidden_dim]
         state_value = self.critic_head(virtual_node_features) # [batch, 1]
