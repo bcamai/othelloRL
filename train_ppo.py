@@ -153,7 +153,8 @@ class PPOAgent:
             rewards.insert(0, discounted_reward)
             
         rewards = torch.tensor(rewards, dtype=torch.float32).to(device)
-        rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-7)
+        # NOTE Do not normalize reward since critic output is (-1, 1)
+        # rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-7)
 
         old_states = torch.stack(self.buffer.states, dim=0).detach()
         old_masks = torch.stack(self.buffer.masks, dim=0).detach()
@@ -162,6 +163,7 @@ class PPOAgent:
         old_state_values = torch.stack(self.buffer.state_values, dim=0).detach()
 
         advantages = rewards.detach() - old_state_values.detach()
+        #advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-7)
 
         for _ in range(self.K_epochs):
             logits, state_values = self.policy(old_states)
@@ -190,7 +192,7 @@ class PPOAgent:
 
 if __name__ == "__main__":
     
-    max_episodes = 20000
+    max_episodes = 25_000
     update_every_n_episodes = 20  
     K_epochs = 4                  
     eps_clip = 0.2                

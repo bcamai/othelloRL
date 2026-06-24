@@ -3,6 +3,8 @@
 // TODO move to players.C later
 #include <stdlib.h>
 
+// TODO change randomness
+
 typedef unsigned long long u64;
 typedef unsigned int uint32;
 
