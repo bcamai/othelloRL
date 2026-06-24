@@ -46,9 +46,9 @@ class Board:
         return score
 
     def get_winner(self, black_board, white_board):
-        white_score = self.get_score(black_board)
-        black_score = self.get_score(white_board)
-        if(white_score > black_board):
+        white_score = self.get_score(white_board)
+        black_score = self.get_score(black_board)
+        if(white_score > black_score):
             return 1
         elif(black_score > white_score):
             return -1
