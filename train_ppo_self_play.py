@@ -12,9 +12,6 @@ from agent import ActorCriticGNN
 #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device("cpu")
 
-# NOTE Change learning for the moment self play is unstable
-# Potential solution random openings or Dirichlet noise (alphazero)
-
 def boards_to_tensor(black_board, white_board, current_color):
     my_board = white_board if current_color == WHITE else black_board
     opp_board = black_board if current_color == WHITE else white_board
@@ -177,6 +174,17 @@ if __name__ == "__main__":
     
     for episode in range(1, max_episodes + 1):
         state, mask, raw_mask, current_color = env.reset()
+
+        num_random_moves = random.randint(1, 5)
+        for _ in range(num_random_moves):
+            valid_moves_indices = torch.where(mask == 1.0)[0].tolist()
+            if not valid_moves_indices:
+                break
+            random_action = random.choice(valid_moves_indices)
+            state, mask, raw_mask, current_color, winner, done = env.step(random_action, current_color)
+
+            if done:
+                break
         
         black_buffer = PPOBuffer()
         white_buffer = PPOBuffer()
