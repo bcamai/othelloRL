@@ -20,14 +20,14 @@ def format_hex(val):
 
 def bit_to_tuple(mask):
     idx = (mask.bit_length() - 1)
-    row = idx % 8
-    col = idx // 8
+    row = idx // 8
+    col = idx % 8
     return (row, col)
 
 def list_moves_to_mask(moves_list):
     mask = 0
     for r, c in moves_list:
-        mask |= (1 << (c * 8 + r))
+        mask |= (1 << (r * 8 + c))
     return mask
 
 def list_board_to_masks(board_2d, size=8):
@@ -36,9 +36,9 @@ def list_board_to_masks(board_2d, size=8):
     for r in range(size):
         for c in range(size):
             if board_2d[r][c] == -1: 
-                black |= (1 << (c * 8 + r))
+                black |= (1 << (r * 8 + c))
             elif board_2d[r][c] == 1: 
-                white |= (1 << (c * 8 + r))
+                white |= (1 << (r * 8 + c))
     return black, white
 
 
