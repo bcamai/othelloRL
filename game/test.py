@@ -19,6 +19,8 @@ def format_hex(val):
     return f"0x{val:016X}"
 
 def bit_to_tuple(mask):
+    # NOTE This flips board around anti-diagonal
+    # It is fine in testing since we are doing it also in list_board_to_masks so it cancels
     idx = (mask.bit_length() - 1)
     row = idx // 8
     col = idx % 8

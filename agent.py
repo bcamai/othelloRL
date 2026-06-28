@@ -104,6 +104,8 @@ class DQN_GNN(nn.Module):
         board_features = x_combined[:, :64, :] # [batch, 64, 3 * hidden_dim]
 
         q_values = self.q_value_head(board_features) # [batch, 64, 1]
+
+        return q_values.squeeze(-1)
         
 
 class ActorCriticGNN(nn.Module):

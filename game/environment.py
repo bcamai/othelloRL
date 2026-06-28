@@ -1,7 +1,7 @@
 import ctypes
 import torch
-from game.pythonEnvironment import Board
-from game.pyEnv import Board as ListBoard
+from game.bitboard_env import Board
+from game.list_env import Board as ListBoard
 import random
 
 c_env = ctypes.CDLL('./game/othello.so')
