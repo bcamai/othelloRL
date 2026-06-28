@@ -248,7 +248,6 @@ class Board:
             finished = 0
             next_turn_color = current_color
 
-            # Ruch gracza (Pytona)
             black_after, white_after = self.apply_move(black_board, white_board, current_color, move)
             current_color = 1 - current_color
             

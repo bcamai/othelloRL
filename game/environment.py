@@ -1,10 +1,10 @@
 import ctypes
 import torch
-from pythonEnvironment import Board
-from pyEnv import Board as ListBoard
+from game.pythonEnvironment import Board
+from game.pyEnv import Board as ListBoard
 import random
 
-c_env = ctypes.CDLL('./othello.so')
+c_env = ctypes.CDLL('./game/othello.so')
 c_env.PrintBoard.argtypes = [ctypes.c_ulonglong, ctypes.c_ulonglong] 
 c_env.FindValidMoves.argtypes = [ctypes.c_ulonglong, ctypes.c_ulonglong,
                                 ctypes.c_int, ctypes.POINTER(ctypes.c_ulonglong)]
@@ -43,20 +43,20 @@ def mask_to_tensor(valid_moves_mask):
     return torch.tensor([(valid_moves_mask >> i) & 1 for i in range(64)], dtype=torch.float32).to(device)
 
 def list_board_to_tensor(board_2d, current_color, board_size):
-    my_bits = []
-    opp_bits = []
+    # Flips board around anti-digonal so it matches boards_to_tensor
+    num_nodes = board_size * board_size
+    my_bits = [0.0] * num_nodes
+    opp_bits = [0.0] * num_nodes
     for r in range(board_size):
         for c in range(board_size):
             val = board_2d[r][c]
+
+            idx = (board_size - 1 - r) * board_size + (board_size - 1 - c)
+
             if val == current_color:
-                my_bits.append(1.0)
-                opp_bits.append(0.0)
+                my_bits[idx] = 1.0
             elif val == current_color * -1:
-                my_bits.append(0.0)
-                opp_bits.append(1.0)
-            else:
-                my_bits.append(0.0)
-                opp_bits.append(0.0)
+                opp_bits[idx] = 1.0
     
     return torch.tensor(my_bits + opp_bits, dtype=torch.float32).to(device)
 
@@ -65,7 +65,7 @@ def list_mask_to_tensor(valid_moves_list, board_size):
     num_nodes = board_size * board_size
     mask = torch.zeros(num_nodes, dtype=torch.float32).to(device)
     for r, c in valid_moves_list:
-        idx = r * board_size + c
+        idx = (board_size - 1 - r) * board_size + (board_size - 1 - c)
         mask[idx] = 1.0
     return mask
 
@@ -99,7 +99,6 @@ class C_Environment:
                 
                 valid_indices = [i for i in range(64) if (valid_moves >> i) & 1]
                 random_move = 1 << random.choice(valid_indices)
-                
                 next_color_buf = ctypes.c_int(0)
                 finished_buf = ctypes.c_int(0)
                 
@@ -282,11 +281,14 @@ class PythonListEnvironment(ListBoard):
                 if self.finished:
                     break
 
-        return board_to_tensor(self.board, self.current_color, self.board_size), mask_to_tensor(valid_moves, self.board_size), valid_moves, self.current_color
+        return list_board_to_tensor(self.board, self.current_color, self.board_size), list_mask_to_tensor(valid_moves, self.board_size), valid_moves, self.current_color
 
     def step(self, action_idx, color):
-        row = action_idx // self.board_size
-        col = action_idx % self.board_size
+        # NOTE Changed because, list_to_board_tensor() was also changed
+        # It was changed so it matches output of boards_to_tensor
+        # Output of board list is flipped around anit-diagonal
+        row = self.board_size - 1 - (action_idx // self.board_size)
+        col = self.board_size - 1 - (action_idx % self.board_size)
         move = (row, col)
 
         self.play_turn(color, move)
@@ -301,27 +303,36 @@ class PythonListEnvironment(ListBoard):
             elif white_pts > black_pts:
                 winner = 1
 
-        return board_to_tensor(self.board, self.current_color, self.board_size), mask_to_tensor(valid_moves, self.board_size), valid_moves, self.current_color, winner, self.finished
+        return list_board_to_tensor(self.board, self.current_color, self.board_size), list_mask_to_tensor(valid_moves, self.board_size), valid_moves, self.current_color, winner, self.finished
 
     def step_against(self, action_idx):
-        row = action_idx // self.board_size
-        col = action_idx % self.board_size
+        row = self.board_size - 1 - (action_idx // self.board_size)
+        col = self.board_size - 1 - (action_idx % self.board_size)
         agent_move = (row, col)
 
-        self.play_turn(self.agent_color, agent_move)
+        self.apply_move(self.agent_color, agent_move)
+        self.current_color *= -1
+        #self.play_turn(self.agent_color, agent_move)
         
         bot_color = self.agent_color * -1
         
-        while self.current_color == bot_color and not self.finished:
+        while not self.finished:
             bot_moves = self.find_valid_moves(bot_color)
             if len(bot_moves) > 0:
                 bot_move = random.choice(bot_moves)
-                self.play_turn(bot_color, bot_move)
+                self.apply_move(bot_color, bot_move)
+                #self.play_turn(bot_color, bot_move)
             else:
                 self.current_color = self.agent_color
-                if len(self.find_valid_moves(self.agent_color)) == 0:
-                    self.finished = True
+
+            agent_moves = self.find_valid_moves(self.agent_color)
+            if len(agent_moves) > 0:
                 break
+            else:
+                self.current_color = bot_color
+                if len(self.find_valid_moves(bot_color)) == 0:
+                    self.finished = True
+                    break
 
         valid_moves = self.find_valid_moves(self.agent_color)
         
@@ -335,4 +346,4 @@ class PythonListEnvironment(ListBoard):
             else:
                 reward = 0.0   
 
-        return board_to_tensor(self.board, self.agent_color, self.board_size), mask_to_tensor(valid_moves, self.board_size), valid_moves, reward, self.finished
+        return list_board_to_tensor(self.board, self.agent_color, self.board_size), list_mask_to_tensor(valid_moves, self.board_size), valid_moves, reward, self.finished
