@@ -7,54 +7,11 @@ from collections import deque
 import random
 
 from game.pythonEnvironment import Board, BLACK, WHITE
+from game.environment import PythonBitboardEnvironment
 from agent import ActorCriticGNN
 
 #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device("cpu")
-
-def boards_to_tensor(black_board, white_board, current_color):
-    my_board = white_board if current_color == WHITE else black_board
-    opp_board = black_board if current_color == WHITE else white_board
-    my_bits = [(my_board >> i) & 1 for i in range(64)]
-    opp_bits = [(opp_board >> i) & 1 for i in range(64)]
-    return torch.tensor(my_bits + opp_bits, dtype=torch.float32).to(device)
-
-def mask_to_tensor(valid_moves_mask):
-    return torch.tensor([(valid_moves_mask >> i) & 1 for i in range(64)], dtype=torch.float32).to(device)
-
-
-class OthelloEnv:
-    def __init__(self):
-        self.env = Board()
-
-    def reset(self):
-        self.black = 0x0000000810000000
-        self.white = 0x0000001008000000
-        self.finished = False
-        
-        self.current_color = BLACK
-        valid_moves = self.env.find_valid_move(self.black, self.white, self.current_color)
-        return boards_to_tensor(self.black, self.white, self.current_color), mask_to_tensor(valid_moves), valid_moves, self.current_color
-
-    def step(self, action_idx, color):
-        move = 1 << action_idx
-        self.black, self.white = self.env.apply_move(self.black, self.white, color, move)
-        
-        next_color = WHITE if color == BLACK else BLACK
-        valid_moves = self.env.find_valid_move(self.black, self.white, next_color)
-        
-        if valid_moves == 0:
-            next_color = color 
-            valid_moves = self.env.find_valid_move(self.black, self.white, next_color)
-            if valid_moves == 0:
-                self.finished = True 
-                
-        winner = 0
-        if self.finished:
-            winner = self.env.get_winner(self.black, self.white)
-
-        return boards_to_tensor(self.black, self.white, next_color), mask_to_tensor(valid_moves), valid_moves, next_color, winner, self.finished
-
 
 class PPOBuffer:
     def __init__(self):
@@ -167,13 +124,13 @@ if __name__ == "__main__":
     lr_actor = 0.0003
     lr_critic = 0.001
 
-    env = OthelloEnv()
+    env = PythonBitboardEnvironment()
     ppo_agent = PPOAgent(lr_actor, lr_critic, gamma, K_epochs, eps_clip)
 
     win_history = deque(maxlen=100)
     
     for episode in range(1, max_episodes + 1):
-        state, mask, raw_mask, current_color = env.reset()
+        state, mask, raw_mask, current_color = env.reset_env()
 
         num_random_moves = random.randint(1, 5)
         for _ in range(num_random_moves):
@@ -243,4 +200,4 @@ if __name__ == "__main__":
             print(f"Episode {episode}/{max_episodes} | Black over white (Self-Play): {avg_win:.1f}%")
 
         if episode % 500 == 0:
-            torch.save(ppo_agent.policy.state_dict(), "othello_self_play_ppo_gnn.pth")
+            torch.save(ppo_agent.policy.state_dict(), "models/othello_selfplay_ppo_gnn.pth")

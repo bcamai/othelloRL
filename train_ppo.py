@@ -5,76 +5,13 @@ from torch.distributions import Categorical
 import numpy as np
 from collections import deque
 import random
-
-from game.pythonEnvironment import Board, BLACK, WHITE
+#from game.pythonEnvironment import Board, BLACK, WHITE
+from game.environment import PythonBitboardEnvironment
 from agent import ActorCriticGNN
 
 #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device("cpu")
 
-
-def boards_to_tensor(black_board, white_board, current_color):
-    my_board = white_board if current_color == WHITE else black_board
-    opp_board = black_board if current_color == WHITE else white_board
-    my_bits = [(my_board >> i) & 1 for i in range(64)]
-    opp_bits = [(opp_board >> i) & 1 for i in range(64)]
-    return torch.tensor(my_bits + opp_bits, dtype=torch.float32).to(device)
-
-def mask_to_tensor(valid_moves_mask):
-    return torch.tensor([(valid_moves_mask >> i) & 1 for i in range(64)], dtype=torch.float32).to(device)
-
-
-class OthelloEnv:
-    def __init__(self):
-        self.env = Board()
-
-    def reset(self):
-        self.black = 0x0000000810000000
-        self.white = 0x0000001008000000
-        self.finished = False
-        valid_moves = self.env.find_valid_move(self.black, self.white, BLACK)
-        return boards_to_tensor(self.black, self.white, BLACK), mask_to_tensor(valid_moves), valid_moves
-
-    def step(self, action_idx):
-        move = 1 << action_idx
-        self.black, self.white = self.env.apply_move(self.black, self.white, BLACK, move)
-        
-        color = WHITE
-        valid_moves = self.env.find_valid_move(self.black, self.white, color)
-        
-        while True:
-            if valid_moves == 0:
-                color = BLACK
-                valid_moves = self.env.find_valid_move(self.black, self.white, color)
-                if valid_moves == 0:
-                    self.finished = True
-                    break
-                else:
-                    break
-            else:
-                num_moves = self.env.get_score(valid_moves)
-                bot_move = self.env.get_random_move(valid_moves, num_moves)
-                self.black, self.white = self.env.apply_move(self.black, self.white, WHITE, bot_move)
-                
-                color = BLACK
-                valid_moves = self.env.find_valid_move(self.black, self.white, color)
-                if valid_moves != 0:
-                    break
-                
-                color = WHITE
-                valid_moves = self.env.find_valid_move(self.black, self.white, color)
-                if valid_moves == 0:
-                    self.finished = True
-                    break
-
-        reward = 0.0
-        if self.finished:
-            winner = self.env.get_winner(self.black, self.white)
-            if winner == -1:    reward = 1.0  
-            elif winner == 1:   reward = -1.0 
-            else:               reward = 0.0  
-
-        return boards_to_tensor(self.black, self.white, BLACK), mask_to_tensor(valid_moves), valid_moves, reward, self.finished
 
 
 
@@ -96,7 +33,6 @@ class PPOBuffer:
         self.state_values.clear()
         self.is_terminals.clear()
         self.masks.clear()
-
 
 
 class PPOAgent:
@@ -201,19 +137,23 @@ if __name__ == "__main__":
     lr_actor = 0.0003
     lr_critic = 0.001
 
-    env = OthelloEnv()
+    env = PythonBitboardEnvironment()
     ppo_agent = PPOAgent(lr_actor, lr_critic, gamma, K_epochs, eps_clip)
 
     win_history = deque(maxlen=100)
 
     
     for episode in range(1, max_episodes + 1):
-        state, mask, raw_mask = env.reset()
+        state, mask, raw_mask, current_color = env.reset_env(random_opening=True)
+
+        if env.finished:
+            # In case random opening resulted in finished game
+            continue
         
         while True:
             action = ppo_agent.select_action(state, mask)
             
-            next_state, next_mask, next_raw_mask, reward, done = env.step(action)
+            next_state, next_mask, next_raw_mask, reward, done = env.step_against(action)
 
             ppo_agent.buffer.rewards.append(reward)
             ppo_agent.buffer.is_terminals.append(done)
@@ -232,4 +172,4 @@ if __name__ == "__main__":
             avg_win = (sum(win_history) / len(win_history)) * 100 if win_history else 0
             print(f"Episode {episode}/{max_episodes} | WinRate (Last 100): {avg_win:.1f}%")
 
-    torch.save(ppo_agent.policy.state_dict(), "othello_ppo_gnn.pth")
+    torch.save(ppo_agent.policy.state_dict(), "models/othello_ppo_gnn.pth")

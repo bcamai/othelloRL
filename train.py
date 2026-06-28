@@ -5,88 +5,10 @@ import random
 import numpy as np
 from collections import deque
 from agent import MLP, DQN_GNN
+#from game.pythonEnvironment import Board, BLACK, WHITE
+from game.environment import PythonBitboardEnvironment
 
-from game.pythonEnvironment import Board, BLACK, WHITE
-
-# TODO redo this file
-
-def boards_to_tensor(black_board, white_board, current_color):
-    my_board = white_board if current_color == WHITE else black_board
-    opp_board = black_board if current_color == WHITE else white_board
-    
-    my_bits = [(my_board >> i) & 1 for i in range(64)]
-    opp_bits = [(opp_board >> i) & 1 for i in range(64)]
-    
-    return torch.tensor(my_bits + opp_bits, dtype=torch.float32)
-
-def mask_to_tensor(valid_moves_mask):
-    return torch.tensor([(valid_moves_mask >> i) & 1 for i in range(64)], dtype=torch.float32)
-
-
-
-class OthelloEnv:
-    def __init__(self):
-        self.env = Board()
-        self.reset()
-
-    def reset(self):
-        self.black = 0x0000000810000000
-        self.white = 0x0000001008000000
-        self.finished = False
-        
-        valid_moves = self.env.find_valid_move(self.black, self.white, BLACK)
-        return boards_to_tensor(self.black, self.white, BLACK), mask_to_tensor(valid_moves), valid_moves
-
-    def step(self, action_idx):
-        move = 1 << action_idx
-        self.black, self.white = self.env.apply_move(self.black, self.white, BLACK, move)
-        
-        color = WHITE
-        valid_moves = self.env.find_valid_move(self.black, self.white, color)
-        
-        while True:
-            if valid_moves == 0:
-                color = BLACK
-                valid_moves = self.env.find_valid_move(self.black, self.white, color)
-                if valid_moves == 0:
-                    self.finished = True
-                    break
-                else:
-                    break
-            else:
-                num_moves = self.env.get_score(valid_moves)
-                bot_move = self.env.get_random_move(valid_moves, num_moves)
-                self.black, self.white = self.env.apply_move(self.black, self.white, WHITE, bot_move)
-                
-                color = BLACK
-                valid_moves = self.env.find_valid_move(self.black, self.white, color)
-                if valid_moves != 0:
-                    break
-                
-                color = WHITE
-                valid_moves = self.env.find_valid_move(self.black, self.white, color)
-                if valid_moves == 0:
-                    self.finished = True
-                    break
-
-        reward = 0.0
-        if self.finished:
-            winner = self.env.get_winner(self.black, self.white)
-            if winner == -1:    
-                reward = 1.0
-            elif winner == 1:   
-                reward = -1.0
-            else:
-                reward = 0.0    
-
-        return (boards_to_tensor(self.black, self.white, BLACK), 
-                mask_to_tensor(valid_moves), 
-                valid_moves, 
-                reward, 
-                self.finished)
-
-
-
+device = torch.device("cpu")
 
 class ReplayBuffer:
     def __init__(self, capacity=20000):
@@ -98,7 +20,7 @@ class ReplayBuffer:
     def sample(self, batch_size):
         batch = random.sample(self.buffer, batch_size)
         state, action, reward, next_state, done, next_mask = zip(*batch)
-        return (torch.stack(state), 
+        return (torch.stack(state).to(device), 
                 torch.tensor(action, dtype=torch.long), 
                 torch.tensor(reward, dtype=torch.float32), 
                 torch.stack(next_state), 
@@ -148,7 +70,7 @@ def train_step(model, target_model, optimizer, buffer, batch_size, gamma):
 
 
 if __name__ == "__main__":
-    EPISODES = 40_000
+    EPISODES = 20_000
     BATCH_SIZE = 64
     GAMMA = 0.9995
     LR = 0.001
@@ -160,27 +82,28 @@ if __name__ == "__main__":
 
     #model = MLP()
     #target_model = MLP()
-    model = GNN()
-    target_model = GNN()
+    model = DQN_GNN()
+    target_model = DQN_GNN()
     target_model.load_state_dict(model.state_dict()) 
     
     optimizer = optim.Adam(model.parameters(), lr=LR)
     buffer = ReplayBuffer()
-    env = OthelloEnv()
+    env = PythonBitboardEnvironment()
 
     win_history = deque(maxlen=100) 
     
     for episode in range(EPISODES):
-        state, mask_tensor, raw_mask = env.reset()
+        state, mask_tensor, raw_mask, current_color = env.reset_env(random_opening=True)
         episode_loss = []
         
         while True:
             action = select_action(model, state, mask_tensor, epsilon)
             
-            next_state, next_mask_tensor, next_raw_mask, reward, done = env.step(action)
+            next_state, next_mask_tensor, next_raw_mask, reward, done = env.step_against(action)
             
             buffer.push(state, action, reward, next_state, float(done), next_mask_tensor)
             loss_val = train_step(model, target_model, optimizer, buffer, BATCH_SIZE, gamma=GAMMA)
+
             if loss_val is not None:
                 episode_loss.append(loss_val)
                 
@@ -190,6 +113,7 @@ if __name__ == "__main__":
                 
             state = next_state
             mask_tensor = next_mask_tensor
+            raw_mask = next_raw_mask
 
         epsilon = max(epsilon_min, epsilon * epsilon_decay)
 
@@ -201,5 +125,4 @@ if __name__ == "__main__":
             avg_loss = np.mean(episode_loss) if episode_loss else 0
             print(f"Episode {episode+1}/{EPISODES} | WinRate (Last 100): {avg_win:.1f}% | Epsilon: {epsilon:.3f} | Loss: {avg_loss:.4f}")
 
-    torch.save(model.state_dict(), "othello_mlp.pth")
-    print("\nFinished, saved as othello_mlp.pth")
+    torch.save(model.state_dict(), "models/othello_dqn_gnn.pth")
